@@ -2710,6 +2710,7 @@ _send_signed_request() {
   MAX_REQUEST_RETRY_TIMES=20
   _sleep_retry_sec=1
   _request_retry_times=0
+  _account_does_not_exist_retries=0
   while [ "${_request_retry_times}" -lt "$MAX_REQUEST_RETRY_TIMES" ]; do
     _request_retry_times=$(_math "$_request_retry_times" + 1)
     _debug3 _request_retry_times "$_request_retry_times"
@@ -2836,6 +2837,13 @@ _send_signed_request() {
         _info "The replay nonce is not valid, let's get a new one. Sleeping for $_sleep_retry_sec seconds."
         _CACHED_NONCE=""
         _sleep $_sleep_retry_sec
+        continue
+      fi
+      if _contains "$_body" "urn:ietf:params:acme:error:accountDoesNotExist" && [ "$_account_does_not_exist_retries" -lt 3 ]; then
+        _account_does_not_exist_retries=$(_math "$_account_does_not_exist_retries" + 1)
+        _sleep_account_does_not_exist_sec="$(_retry_backoff_sec "$_account_does_not_exist_retries")"
+        _info "The CA server could not find the account, let's wait and retry. Sleeping for $_sleep_account_does_not_exist_sec seconds."
+        _sleep "$_sleep_account_does_not_exist_sec"
         continue
       fi
     fi
